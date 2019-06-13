@@ -127,12 +127,14 @@ class BertSim:
 
     def set_mode(self, mode):
         self.mode = mode
-        self.estimator = self.get_estimator()
         if mode == tf.estimator.ModeKeys.PREDICT:
+            self.estimator = self.get_predict_estimator()
             self.input_queue = Queue(maxsize=1)
             self.output_queue = Queue(maxsize=1)
             self.predict_thread = Thread(target=self.predict_from_queue, daemon=True)
             self.predict_thread.start()
+        else:
+            self.estimator = self.get_estimator()
 
     def create_model(bert_config, is_training, input_ids, input_mask, segment_ids,
                      labels, num_labels, use_one_hot_embeddings):
@@ -250,6 +252,42 @@ class BertSim:
             return output_spec
 
         return model_fn
+
+    def get_predict_estimator(self):
+
+        from tensorflow.python.estimator.estimator import Estimator
+        from tensorflow.python.estimator.run_config import RunConfig
+
+        bert_config = modeling.BertConfig.from_json_file(args.config_name)
+        label_list = self.processor.get_labels()
+        #train_examples = self.processor.get_train_examples(args.data_dir)
+        #num_train_steps = int(
+        #    len(train_examples) / self.batch_size * args.num_train_epochs)
+        #num_warmup_steps = int(num_train_steps * 0.1)
+        num_train_steps = 0
+        num_warmup_steps = 0
+
+        if self.mode == tf.estimator.ModeKeys.TRAIN:
+            init_checkpoint = args.ckpt_name
+        else:
+            init_checkpoint = args.output_dir
+
+        model_fn = self.model_fn_builder(
+            bert_config=bert_config,
+            num_labels=len(label_list),
+            init_checkpoint=init_checkpoint,
+            learning_rate=args.learning_rate,
+            num_train_steps=num_train_steps,
+            num_warmup_steps=num_warmup_steps,
+            use_one_hot_embeddings=False)
+
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        config.gpu_options.per_process_gpu_memory_fraction = args.gpu_memory_fraction
+        config.log_device_placement = False
+
+        return Estimator(model_fn=model_fn, config=RunConfig(session_config=config), model_dir=args.output_dir,
+                         params={'batch_size': self.batch_size})
 
     def get_estimator(self):
 

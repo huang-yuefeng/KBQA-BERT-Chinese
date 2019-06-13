@@ -16,22 +16,49 @@ sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
 
 from datetime import time, timedelta, datetime
 
-from run_ner import create_model, InputFeatures
+from run_ner import create_model, InputFeatures, InputExample
 from bert import tokenization
 from bert import modeling
 from run_similarity import BertSim
 from Data.load_dbdata import upload_data
 
+
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 flags = tf.flags
+
+flags.DEFINE_bool(
+    "do_predict_outline", False,
+    "Whether to do predict outline."
+)
+flags.DEFINE_bool(
+    "do_predict_online", False,
+    "Whether to do predict online."
+)
+
 FLAGS = flags.FLAGS
 
-DIR = './'
+DIR = '../KBQA-Bert/'
+FLAGS.task_name = 'ner'
+FLAGS.data_dir = DIR + './Data/NER_Data'
 FLAGS.vocab_file = DIR + './ModelParams/chinese_L-12_H-768_A-12/vocab.txt'
 FLAGS.bert_config_file = DIR + './ModelParams/chinese_L-12_H-768_A-12/bert_config.json'
 FLAGS.output_dir = DIR + './Output/NER/'
+FLAGS.init_checkpoint = DIR + './ModelParams/chinese_L-12_H-768_A-12/bert_model.ckpt'
+FLAGS.data_config_path = DIR + './Config/NER/ner_data.conf'
+FLAGS.do_train = True
+FLAGS.do_eval = True
 FLAGS.max_seq_length = 128
+FLAGS.lstm_size = 128
+FLAGS.num_layers=1
+FLAGS.train_batch_size=64 
+FLAGS.eval_batch_size=8 
+FLAGS.predict_batch_size = 8
+FLAGS.learning_rate = 5e-5
+FLAGS.num_train_epochs = 1
+FLAGS.droupout_rate = 0.5
+FLAGS.clip = 5
+FLAGS.do_predict_online = True
 
 # init mode and session
 # move something codes outside of function, so that this code will run only once during online prediction when predict_online is invoked.
@@ -42,6 +69,7 @@ batch_size=1
 gpu_config = tf.ConfigProto()
 gpu_config.gpu_options.allow_growth = True
 sess=tf.Session(config=gpu_config)
+model=None
 
 global graph
 input_ids_p, input_mask_p, label_ids_p, segment_ids_p = None, None, None, None
@@ -82,6 +110,69 @@ tokenizer = tokenization.FullTokenizer(
 
 bs = BertSim()
 bs.set_mode(tf.estimator.ModeKeys.PREDICT)
+
+def predict_online():
+    """
+    do online prediction. each time make prediction for one instance.
+    you can change to a batch if you want.
+
+    :param line: a list. element is: [dummy_label,text_a,text_b]
+    :return:
+    """
+    def convert(line):
+        feature = convert_single_example(0, line, label_list, FLAGS.max_seq_length, tokenizer, 'p')
+        input_ids = np.reshape([feature.input_ids],(batch_size, FLAGS.max_seq_length))
+        input_mask = np.reshape([feature.input_mask],(batch_size, FLAGS.max_seq_length))
+        segment_ids = np.reshape([feature.segment_ids],(batch_size, FLAGS.max_seq_length))
+        label_ids =np.reshape([feature.label_ids],(batch_size, FLAGS.max_seq_length))
+        return input_ids, input_mask, segment_ids, label_ids
+
+    global graph
+    with graph.as_default():
+        print(id2label)
+        while True:
+            print('\ninput the test sentence:')
+            temp = input()
+            sentence = str(temp)
+            start = datetime.now()
+            if len(sentence) < 2:
+                print(sentence)
+                continue
+            sentence = tokenizer.tokenize(sentence)
+            # print('your input is:{}'.format(sentence))
+            input_ids, input_mask, segment_ids, label_ids = convert(sentence)
+
+            feed_dict = {input_ids_p: input_ids,
+                         input_mask_p: input_mask,
+                         segment_ids_p:segment_ids,
+                         label_ids_p:label_ids}
+            # run session get current feed_dict result
+            pred_ids_result = sess.run([pred_ids], feed_dict)
+            pred_label_result = convert_id_to_label(pred_ids_result, id2label)
+            print(pred_label_result)
+            #todo: 组合策略
+            result = strage_combined_link_org_loc(sentence, pred_label_result[0], True)
+            print('识别的实体是：{}'.format(''.join(result)))
+            #print('Time used: {} sec'.format((datetime.now() - start).seconds))
+            ner = ''.join(result)
+            ner = ner.replace("#", "").replace("[UNK]", "%").replace("\n", "")
+            if len(ner) == 0:
+                print('can not recognize this entity')
+                continue
+            sql_e0_a1 = "select * from nlpccQA where entity like '%" + ner + "%' order by length(entity) asc limit 20"
+            result_e0_a1 = list(upload_data(sql_e0_a1))
+            if len(result_e0_a1) == 0:
+                print('can not find this NE in kb') 
+            else:
+                result_df = pd.DataFrame(result_e0_a1, columns=['entity', 'attribute', 'value'])
+                attribute_candicate_sim = [(k, bs.predict(sentence, k)[0][1]) for k in result_df['attribute'].tolist()]
+                attribute_candicate_sort = sorted(attribute_candicate_sim, key=lambda candicate: candicate[1], reverse=True)
+                print ('\n知识库中相关的实体是： ', result_df)
+                print('\n属性相似性排序结果：')
+                print("\n".join([str(k)+" "+str(v) for (k, v) in attribute_candicate_sort]))
+                answer_candicate_df = result_df[result_df["attribute"] == attribute_candicate_sort[0][0]]
+                for row in answer_candicate_df.index:
+                    print('\n识别实体： ', ner, '最相似关系：', attribute_candicate_sort[0][0], '问题的答案是：', answer_candicate_df.loc[row,'value'] )
 
 def kbqa_api(sentence):
     """
@@ -393,6 +484,5 @@ if __name__ == "__main__":
     question = "高等数学的全名是什么？"
     answer = kbqa_api(question)
     print ('test kbqa api: question is ', question, 'answer is ', answer)
-    question = "红楼梦的简介"
-    answer = kbqa_api(question)
-    print ('test kbqa api: question is ', question, 'answer is ', answer)
+    if FLAGS.do_predict_online:
+        predict_online()
