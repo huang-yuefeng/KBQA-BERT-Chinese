@@ -14,11 +14,10 @@ from sqlalchemy import create_engine
 def create_db():
     connect = pymysql.connect(  # 连接数据库服务器
         user="root",
-        password="123456",
+        password="huangyf",
         host="127.0.0.1",
         port=3306,
-        db="KB_QA",
-        charset="utf8"
+        db="KB_QA", charset="utf8"
     )
     conn = connect.cursor()  # 创建操作游标
     # 你需要一个游标 来实现对数据库的操作相当于一条线索
@@ -29,8 +28,8 @@ def create_db():
     conn.execute("use KB_QA")  # 选择new_database这个数据库
 
     # sql 中的内容为创建一个名为new_table的表
-    sql = """create table nlpccQA(entity VARCHAR(20) character set utf8 collate utf8_unicode_ci,
-    attribute VARCHAR(20) character set utf8 collate utf8_unicode_ci, answer VARCHAR(20) character set utf8 
+    sql = """create table nlpccQA(entity VARCHAR(100) character set utf8 collate utf8_unicode_ci,
+    attribute VARCHAR(100) character set utf8 collate utf8_unicode_ci, answer VARCHAR(1000) character set utf8 
     collate utf8_unicode_ci)"""  # ()中的参数可以自行设置
     conn.execute("drop table if exists nlpccQA")  # 如果表存在则删除
     conn.execute(sql)  # 创建表
@@ -45,7 +44,7 @@ def create_db():
 def loaddata():
     # 初始化数据库连接，使用pymysql模块
     db_info = {'user': 'root',
-               'password': '123456',
+               'password': 'huangyf',
                'host': '127.0.0.1',
                'port': 3306,
                'database': 'KB_QA'
@@ -58,7 +57,7 @@ def loaddata():
 
     # 读取本地CSV文件
     df = pd.read_csv("./DB_Data/clean_triple.csv", sep=',', encoding='utf-8')
-    print(df)
+    print(df.loc[141])
     # 将新建的DataFrame储存为MySQL中的数据表，不储存index列(index=False)
     # if_exists:
     # 1.fail:如果表存在，啥也不做
@@ -72,7 +71,7 @@ def loaddata():
 def upload_data(sql):
     connect = pymysql.connect(  # 连接数据库服务器
         user="root",
-        password="123456",
+        password="huangyf",
         host="127.0.0.1",
         port=3306,
         db="KB_QA",

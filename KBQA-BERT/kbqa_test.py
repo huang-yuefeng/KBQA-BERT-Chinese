@@ -135,13 +135,18 @@ def kb_fuzzy_classify_test():
                     # l1[1]: attribute
                     # l1[2]: answer
                     flag_ambiguity = True
+                    my_attribute = None
+                    my_answer = None
                     for l in result_e0_a1:
+                        print (l)
                         if l[1] in question or l[1].lower() in question or l[1].upper() in question:
                             flag_fuzzy = False
 
                             if estimate_answer(l[2], answer):
                                 correct += 1
                                 flag_ambiguity = False
+                                my_attribute = l[1]
+                                my_answer = l[1]
                             else:
                                 loginfo.logger.info("\t".join(l))
 
@@ -153,6 +158,7 @@ def kb_fuzzy_classify_test():
 
                         time.sleep(1)
                         loginfo.logger.info("total: {}, recall: {}, correct:{}, accuracy: {}%, ambiguity：{}".format(total, recall, correct, correct * 100.0 / recall, ambiguity))
+                        print('attribute is ', my_attribute, ' answer is ', my_answer )
                         continue
 
                     # 语义匹配
@@ -167,8 +173,11 @@ def kb_fuzzy_classify_test():
                     for row in answer_candicate_df.index:
                         if estimate_answer(answer_candicate_df.loc[row, "value"], answer):
                             correct += 1
+                            print('attribute is ', attribute_candicate_sort[0][0], ' answer is ', answer_candicate_df.loc[row,'value'] )
                         else:
                             loginfo.logger.info("\t".join(answer_candicate_df.loc[row].tolist()))
+                else:
+                    print('cant find this entity')
                 time.sleep(1)
                 loginfo.logger.info("total: {}, recall: {}, correct:{}, accuracy: {}%, ambiguity：{}".format(total, recall, correct, correct * 100.0 / recall, ambiguity))
             except Exception as e:

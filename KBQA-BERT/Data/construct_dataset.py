@@ -3,12 +3,12 @@ import sys
 import os
 import pandas as pd
 
-
 '''
 构造NER训练集，实体序列标注，训练BERT+BiLSTM+CRF
 '''
 # [training, testing]
 data_type = "training"
+#data_type = "testing"
 file = "./NLPCC2016KBQA/nlpcc-iccpol-2016.kbqa."+data_type+"-data"
 question_str = "<question"
 triple_str = "<triple"

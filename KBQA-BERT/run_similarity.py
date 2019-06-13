@@ -378,15 +378,15 @@ class BertSim:
             assert len(segment_ids) == max_seq_length
 
             label_id = label_map[example.label]
-            if ex_index < 5:
-                tf.logging.info("*** Example ***")
-                tf.logging.info("guid: %s" % (example.guid))
-                tf.logging.info("tokens: %s" % " ".join(
-                    [tokenization.printable_text(x) for x in tokens]))
-                tf.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
-                tf.logging.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
-                tf.logging.info("segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
-                tf.logging.info("label: %s (id = %d)" % (example.label, label_id))
+            #if ex_index < 5:
+            #    tf.logging.info("*** Example ***")
+            #    tf.logging.info("guid: %s" % (example.guid))
+            #    tf.logging.info("tokens: %s" % " ".join(
+            #        [tokenization.printable_text(x) for x in tokens]))
+            #    tf.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
+            #    tf.logging.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
+            #    tf.logging.info("segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
+            #    tf.logging.info("label: %s (id = %d)" % (example.label, label_id))
 
             feature = InputFeatures(
                 input_ids=input_ids,

@@ -1,4 +1,4 @@
-python run_ner.py \
+PYTHONIOENCODING=utf-8 python run_ner.py \
   --task_name=ner \
   --data_dir=./Data/NER_Data \
   --vocab_file=./ModelParams/chinese_L-12_H-768_A-12/vocab.txt \

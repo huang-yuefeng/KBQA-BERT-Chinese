@@ -11,6 +11,7 @@ import pandas as pd
 '''
 # [training, testing]
 data_type = "training"
+#data_type = "testing"
 file = "nlpcc-iccpol-2016.kbqa."+data_type+"-data"
 target = "./NER_Data/q_t_a_df_"+data_type+".csv"
 
@@ -42,10 +43,12 @@ if data_type == 'testing':
     with open("./Sim_Data/"+data_type+".txt", "w", encoding='utf-8') as f:
         f.write("\n".join(seq_result))
 else:
-    val_seq_result = seq_result[0:12000]
+#    val_seq_result = seq_result[0:12000]
+    val_seq_result = seq_result[0:120]
     with open("./Sim_Data/"+"val"+".txt", "w", encoding='utf-8') as f:
         f.write("\n".join(val_seq_result))
 
-    training_seq_result = seq_result[12000:]
+    #training_seq_result = seq_result[12000:]
+    training_seq_result = seq_result[120:]
     with open("./Sim_Data/"+data_type+".txt", "w", encoding='utf-8') as f:
         f.write("\n".join(training_seq_result))
