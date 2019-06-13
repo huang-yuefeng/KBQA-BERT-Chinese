@@ -11,6 +11,7 @@ import codecs
 import pickle
 import os 
 import sys  
+import json
 
 sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
 
@@ -83,7 +84,7 @@ tokenizer = tokenization.FullTokenizer(
 bs = BertSim()
 bs.set_mode(tf.estimator.ModeKeys.PREDICT)
 
-def kbqa_api(sentence):
+def kbqa_api(str_input, str_output):
     """
     do online prediction. each time make prediction for one instance.
     you can change to a batch if you want.
@@ -91,6 +92,16 @@ def kbqa_api(sentence):
     :param line: a list. element is: [dummy_label,text_a,text_b]
     :return:
     """
+    dict_output = {'status':'yes'}
+    dict_input = json.loads(str_input)
+    print(dict_input, type(dict_input))
+    if 'question' in dict_input:
+        dict_output['question'] = dict_input['question']
+        sentence = dict_input['question']
+    else:
+        dict_output['status'] = 'there is no question keyword in json format'
+        str_output = json.dumps(dict_output)
+        return str_output
     def convert(line):
         feature = convert_single_example(0, line, label_list, FLAGS.max_seq_length, tokenizer, 'p')
         input_ids = np.reshape([feature.input_ids],(batch_size, FLAGS.max_seq_length))
@@ -106,34 +117,46 @@ def kbqa_api(sentence):
         start = datetime.now()
         if len(sentence) < 2:
             print(sentence)
-            return None
+            dict_output['status'] = 'question value is too short'
+            str_output = json.dumps(dict_output)
+            return str_output
         sentence = tokenizer.tokenize(sentence)
-        # print('your input is:{}'.format(sentence))
+        print('your input is:{}'.format(sentence))
         input_ids, input_mask, segment_ids, label_ids = convert(sentence)
 
         feed_dict = {input_ids_p: input_ids,
                      input_mask_p: input_mask,
                      segment_ids_p:segment_ids,
                      label_ids_p:label_ids}
-        # run session get current feed_dict result
         pred_ids_result = sess.run([pred_ids], feed_dict)
         pred_label_result = convert_id_to_label(pred_ids_result, id2label)
         print(pred_label_result)
         #todo: 组合策略
         result = strage_combined_link_org_loc(sentence, pred_label_result[0], True)
         print('识别的实体是：{}'.format(''.join(result)))
-        #print('Time used: {} sec'.format((datetime.now() - start).seconds))
         ner = ''.join(result)
         ner = ner.replace("#", "").replace("[UNK]", "%").replace("\n", "")
         if len(ner) == 0:
             print('can not recognize this entity')
-            return None
+            dict_output['status'] = 'can not recognize entity'
+            str_output = json.dumps(dict_output)
+            return str_output
+        else:
+            dict_output['entity'] = ner
         sql_e0_a1 = "select * from nlpccQA where entity like '%" + ner + "%' order by length(entity) asc limit 20"
         result_e0_a1 = list(upload_data(sql_e0_a1))
+        #print('Time used: {} sec'.format((datetime.now() - start).seconds))
+        dict_output['time'] = (datetime.now() - start).microseconds/1000.0
         if len(result_e0_a1) == 0:
             print('can not find this NE in kb') 
+            dict_output['status'] = 'can not find this entity in kb'
+            str_output = json.dumps(dict_output)
+            return str_output
         else:
             result_df = pd.DataFrame(result_e0_a1, columns=['entity', 'attribute', 'value'])
+            list_df = []
+            for i in range(0, len(result_df)):
+                list_df.append([result_df.iloc[i]['entity'], result_df.iloc[i]['attribute'], result_df.iloc[i]['value']])
             attribute_candicate_sim = [(k, bs.predict(sentence, k)[0][1]) for k in result_df['attribute'].tolist()]
             attribute_candicate_sort = sorted(attribute_candicate_sim, key=lambda candicate: candicate[1], reverse=True)
             print ('\n知识库中相关的实体是： ', result_df)
@@ -141,10 +164,16 @@ def kbqa_api(sentence):
             print("\n".join([str(k)+" "+str(v) for (k, v) in attribute_candicate_sort]))
             print('\n问题是：', sentence)
             answer_candicate_df = result_df[result_df["attribute"] == attribute_candicate_sort[0][0]]
+            print (answer_candicate_df.index)
             for row in answer_candicate_df.index:
-                print
+                print (row)
                 print('\n识别实体： ', ner, '最相似关系：', attribute_candicate_sort[0][0], '问题的答案是：', answer_candicate_df.loc[row,'value'] )
-                return answer_candicate_df.loc[row,'value']
+                dict_output['status'] = 'ok'
+                dict_output['answer'] = answer_candicate_df.loc[row,'value']
+                dict_output['kb'] = list_df
+                dict_output['attribute'] = "\n".join([str(k)+" "+str(v) for (k, v) in attribute_candicate_sort])
+                str_output = json.dumps(dict_output)
+                return str_output
 
 def convert_id_to_label(pred_ids_result, idx2label):
     """
@@ -390,9 +419,30 @@ class Result(object):
 
 
 if __name__ == "__main__":
-    question = "高等数学的全名是什么？"
-    answer = kbqa_api(question)
+    #question = "高等数学的全名是什么？"
+    question = {"question":"高等数学多少钱？"}
+    question = json.dumps(question)
+    answer = None
+    answer = kbqa_api(question, answer)
     print ('test kbqa api: question is ', question, 'answer is ', answer)
-    question = "红楼梦的简介"
-    answer = kbqa_api(question)
+    #question = "红楼梦的简介"
+    question = {"question":"红楼梦的简介？"}
+    question = json.dumps(question)
+    answer = None
+    answer = kbqa_api(question, answer)
+    print ('test kbqa api: question is ', question, 'answer is ', answer)
+    question = {"question":"黄跃峰？"}
+    question = json.dumps(question)
+    answer = None
+    answer = kbqa_api(question, answer)
+    print ('test kbqa api: question is ', question, 'answer is ', answer)
+    question = {"question":""}
+    question = json.dumps(question)
+    answer = None
+    answer = kbqa_api(question, answer)
+    print ('test kbqa api: question is ', question, 'answer is ', answer)
+    question = {"test":""}
+    question = json.dumps(question)
+    answer = None
+    answer = kbqa_api(question, answer)
     print ('test kbqa api: question is ', question, 'answer is ', answer)
