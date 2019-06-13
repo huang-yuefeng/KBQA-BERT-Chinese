@@ -28,7 +28,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 flags = tf.flags
 FLAGS = flags.FLAGS
 
-DIR = './'
+DIR = '../KBQA-BERT-Release/'
 FLAGS.vocab_file = DIR + './ModelParams/chinese_L-12_H-768_A-12/vocab.txt'
 FLAGS.bert_config_file = DIR + './ModelParams/chinese_L-12_H-768_A-12/bert_config.json'
 FLAGS.output_dir = DIR + './Output/NER/'
@@ -84,7 +84,7 @@ tokenizer = tokenization.FullTokenizer(
 bs = BertSim()
 bs.set_mode(tf.estimator.ModeKeys.PREDICT)
 
-def kbqa_api(str_input, str_output):
+def kbqa_api(str_input):
     """
     do online prediction. each time make prediction for one instance.
     you can change to a batch if you want.
